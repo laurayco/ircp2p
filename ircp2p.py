@@ -1,17 +1,6 @@
 import socket
-from ircbot import IRCBot as Bot, Command, STANDARD_SOCKET
-
-class Keychain:
-	def __init__(self):
-		self.networks = {}
-	def install_network(self,network,public_key,private_key,friends):
-		self.networks[network] = {
-			'public_key':public_key,
-			'private_key':private_key,
-			'friends':friends
-		}
-	def public_key(self,network):
-		return self.networks[network]['public_key']
+from . ircbot import IRCBot as Bot, Command, STANDARD_SOCKET
+from . security import keychain
 
 class JoinCommand(Command):
 	def __init__(self,channels,prefix=None):
