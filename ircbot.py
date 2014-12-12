@@ -51,8 +51,9 @@ class IRCBot:
 		self.buffer_size = buffer_size
 		self.encoding = encoding
 		self.command_queue = Q()
-		self.alive = False
 		self.life_lock = Lock()
+		self.death = Event()
+		self.alive = False
 		self.has_started = Event()
 		self.has_registered = Event()
 	def get_lines(self,conn):
@@ -114,12 +115,14 @@ class IRCBot:
 					self.process_raw(line)
 				elif isinstance(line,Command):
 					self.process(line)
-				if not self.alive:
+				if not self.is_alive():
 					break
 		except Exception as e:
 			with self.life_lock:
 				self.alive = False
 			raise e
+		finally:
+			self.death.set()
 	def send_command(self,command):
 		if command is None:
 			return
@@ -139,6 +142,10 @@ class IRCBot:
 	def is_alive(self):
 		with self.life_lock:
 			return self.alive
+	def die(self):
+		with self.life_lock:
+			self.alive = False
+		self.death.wait()
 
 if __name__=="__main__":
 	from threading import Thread
