@@ -1,41 +1,20 @@
+from daemon import EventDaemon
 
 class Service:
-	status = None
-	def __init__(self,events,name,dependancies):
+	def __init__(self,events,name,depends=None):
 		self.events = events
 		self.name = name
-		self.requires = set(dependancies)
-		self.discovered = {} # service:address
-		events.listen("service.discovery",self.handle_discovery)
-	def handle_discovery(self,addr,event):
-		service = event['name'].lower()
-		self.discovered[service] = addr
-		if all(s in self.discovered for s in self.requires):
-			# all dependancies are met,
-			# run start-up.
-			self.initialize()
-	def get_greeting(self): return {
-		"event":"service.greet",
-		"name":self.name,
-		"status":self.status
-	}
-	def start(self):
-		self.status = "starting"
-		self.events.listen("service.greet",self.checkin)
-		greeting = self.get_greeting()
-		greeting["needs"] = self.requires
-		self.events.broadcast(greeting)
-	def checkin(self,addr,data):
-		remaining = self.requires - self.resolved
-		greeting = None
-		if data['name'] in remaining:
-			self.resolved.add(data['name'])
-			if len(remaining)<2:
-				# all dependancies available.
-				self.status = "ready"
-				greeting = self.get_greeting()
-		if self.name in data.get("needs",[]):
-			if greeting is None:
-				greeting = self.get_greeting()
-		if greeting:
-			self.events.broadcast(greeting)
+		self.depends = depends or []
+		events.listen("service.discover",self.handle_service_event)
+		events.listen("service.starting",self.handle_service_event)
+		events.listen("service.ready",self.handle_service_event)
+	def handle_service_event(self,addr,event):
+		if event['event']=="service.discover":
+			self.acknowledge()
+		elif event['event'] == "service.starting":
+			# the service has loaded,
+			# but is not ready for use yet.
+			pass
+		elif event['event'] == "service.ready":
+			self.handle_service_ready(event['service'])
+	def handle_service_ready(self,service):
