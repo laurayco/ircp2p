@@ -3,8 +3,9 @@ from selectors import DefaultSelector, EVENT_READ, EVENT_WRITE
 from threading import Event
 from re import compile as Regex
 from daemon import EventDaemon
+from service import Service
 
-class Server:
+class ChatServerInterface(Service):
 	ENCODING = 'utf-8'
 	BUFFER_SIZE = 1024
 	REGEX = Regex(r'^(?::(?P<prefix>\S+)\s+)?(?P<command>\w+)\s*(?P<arguments>[^:]*)\s*(?::(?P<trailing>.*))?$')
@@ -14,11 +15,10 @@ class Server:
 	has_identified = False
 	has_connected = False
 	def __init__(self,host,nick,events):
-		self.host = host
+		super().__init__(events,host,['irc'])
 		self.nick = nick
 		self.events = events
-		events.listen("irc.command:"+host,self.handle_command)
-	def handle_command(self,addr,command):
+	def respond(self,addr,command):
 		prefix = command.get("prefix",None)
 		trailing = command.get("trailing",None)
 		arguments = command.get("arguments",[])
@@ -31,8 +31,7 @@ class Server:
 	def read_data(self,sock):
 		if not self.has_connected:
 			self.has_connected = True
-			self.events.broadcast({
-				'event':self.host,
+			self.broadcast({
 				'kind':"info",
 				'meta':{
 					'event':'connected'
@@ -89,7 +88,6 @@ class Server:
 		if m:
 			prefix = m.group("prefix")
 			r = {
-				"event":self.host,
 				"kind":"irc",
 				'prefix':self.parse_prefix(prefix) if prefix else None,
 				'command':m.group('command'),
@@ -100,32 +98,31 @@ class Server:
 				self.enqueue_message("PONG",trailing=r['trailing'])
 			else:
 				if r['command']=='001':
-					self.events.broadcast({
-						"event":self.host,
+					self.broadcast({
 						"kind":'info',
 						"meta":{
 							"event":"identified"
 						}
 					})
 					self.has_identified = True
-				self.events.broadcast(r)
+				self.broadcast(r)
 	def build_message(self,command,trailing=None,prefix=None,args=None):
 		args = args or []
 		prefix = prefix or ""
 		trailing = ":"+trailing if trailing else ""
 		return ("{} {} {} {}".format(prefix,command," ".join(args),trailing).strip()+"\r\n").encode(self.ENCODING)
 
-class IRC:
+class IRC(Service):
 	DEFAULT_PORT = 6667
 	TIMEOUT = 3
 	def __init__(self,events):
+		super().__init__(events,'irc')
 		self.servers = set()
 		self.selector = DefaultSelector()
 		self.events = events
 		self.has_servers = Event()
 		self.channels = {}#server:[channels]
-		events.listen("irc.command",self.handle_command)
-	def handle_command(self,addr,command):
+	def respond(self,addr,command):
 		if command['action']=='connect':
 			server = command['host']
 			nick = command['nick']
@@ -134,7 +131,7 @@ class IRC:
 		if command['action']=='status':
 			print(self.servers)
 			self.events.broadcast({
-				'event':'irc.status',
+				'kind':'status',
 				'status':{
 					'servers':{
 						s: {
@@ -151,7 +148,7 @@ class IRC:
 			print(addr)
 			sock.connect(addr)
 			self.events.listen(host,self.check_channels)
-			self.selector.register(sock,EVENT_READ|EVENT_WRITE,Server(addr[0],nick,self.events))
+			self.selector.register(sock,EVENT_READ|EVENT_WRITE,ChatServerInterface(addr[0],nick,self.events))
 			self.servers.add(host)
 			self.channels[host] = list()
 			if not self.has_servers.is_set():
