@@ -31,10 +31,12 @@ class EventNode:
 	def process_complete_data(self,addr,data):
 		data = data.decode('utf-8')
 		data = json.loads(data)
-		#if data['uuid'] != self.uuid:
-		self._emit_(addr,data['event'],data)
+		if data['uuid'] != self.uuid:
+			print(data['event'])
+			self._emit_(addr,data['event'],data)
 	def _emit_(self,addr,event,data):
 		for listener in set(self.subscriptions.get(event,[])):
+			print(data)
 			listener(addr,data)
 	def broadcast(self,data):
 		data["uuid"] = self.uuid

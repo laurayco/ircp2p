@@ -13,11 +13,15 @@ class Client:
 		else:
 			def on_received_status(addr,event):
 				if event['event']=='irc.status':
-					self.status = event['status']
-					self.received_status.set()
-			self.events.listen('irc.status',on_received_status)
+					try:
+						self.status = event['status']
+						self.received_status.set()
+					except:
+						pass
+			self.events.listen('irc',on_received_status)
 			self.events.broadcast({
-				'event':'irc.command',
+				'event':'service',
+				'service':'irc',
 				'action':'status'
 			})
 			self.received_status.wait()

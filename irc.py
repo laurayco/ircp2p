@@ -130,7 +130,7 @@ class IRC(Service):
 			self.connect((server,port),nick)
 		if command['action']=='status':
 			print(self.servers)
-			self.events.broadcast({
+			self.broadcast({
 				'kind':'status',
 				'status':{
 					'servers':{
@@ -170,4 +170,5 @@ class IRC(Service):
 if __name__ == "__main__":
 	with EventDaemon.create_instance() as events:
 		irc_daemon = IRC(events)
+		irc_daemon.initialize()
 		irc_daemon.loop()

@@ -34,6 +34,7 @@ class Service:
 			# all dependancies started and ready.
 			self.initialize()
 	def handle_service_command(self,addr,event):
+		print(event)
 		if event.get("service")==self.name:
 			self.respond(addr,event)
 		elif event['uuid']!=self.events.uuid:
